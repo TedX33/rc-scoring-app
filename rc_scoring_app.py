@@ -14,6 +14,8 @@ import csv # Import csv module for CSV writing
 import os # Import os module for path manipulation
 import math # Import math for ceil function
 
+print("Script started.")
+
 # Helper function to format seconds into MM:SS.mmm
 def format_seconds_to_mm_ss_mmm(total_seconds):
     if total_seconds is None or total_seconds < 0 or math.isinf(total_seconds):
@@ -31,11 +33,13 @@ class DatabaseManager:
     events, races, lap data, and race results.
     """
     def __init__(self, db_name="rc_scoring.db"):
+        print("DatabaseManager: __init__ started.")
         self.db_name = db_name
         self.conn = None
         self.cursor = None
         self.connect()
         self.create_tables()
+        print("DatabaseManager: __init__ finished.")
 
     def connect(self):
         """Establishes a connection to the SQLite database."""
@@ -496,6 +500,7 @@ class RCScoringApp(QMainWindow):
     Manages UI, race logic, and interacts with the DatabaseManager.
     """
     def __init__(self):
+        print("RCScoringApp: __init__ started.")
         super().__init__()
         self.db = DatabaseManager()
         self.setWindowTitle("RC Scoring System (macOS)")
@@ -518,9 +523,10 @@ class RCScoringApp(QMainWindow):
         self.init_ui()
         # Set focus policy to ensure the main window receives key events
         self.setFocusPolicy(Qt.StrongFocus)
+        print("RCScoringApp: __init__ finished.")
 
     def init_ui(self):
-        """Initializes the main user interface with tabs."""
+        print("RCScoringApp: init_ui started.")
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
@@ -551,6 +557,7 @@ class RCScoringApp(QMainWindow):
         self.load_drivers_to_car_combo()
         self.load_classes_to_car_combo()
         self.load_races_to_report_combo()
+        print("RCScoringApp: init_ui finished.")
 
 
     def create_race_setup_tab(self):
@@ -1325,19 +1332,17 @@ class RCScoringApp(QMainWindow):
         for car_id in self.race_participants_data.keys():
             laps = self.lap_times.get(car_id, [])
             total_laps = len(laps)
-            total_time = 0.0
+            total_time_for_car = 0.0 # Renamed to be specific to the car
             fastest_lap_time = float('inf')
             consistency_score = 0.0
 
             if total_laps > 0:
-                # Total time is from race start to final race end time or last lap time
-                # For timed races, it's the time elapsed when the race ends.
-                # For lap-based races, it's the time to complete the required laps.
-                # Here, we assume timed race, so total time is from start to end of race.
-                if self.race_end_time:
-                    total_time = (self.race_end_time - self.race_start_time).total_seconds()
-                else: # Fallback if race stopped manually without timer expiry
-                    total_time = (datetime.now() - self.race_start_time).total_seconds()
+                # Use the timestamp of the *last lap* for this specific car to calculate its total time
+                last_lap_timestamp_for_car = self.car_last_lap_timestamp.get(car_id)
+                if last_lap_timestamp_for_car and self.race_start_time:
+                    total_time_for_car = (last_lap_timestamp_for_car - self.race_start_time).total_seconds()
+                else:
+                    total_time_for_car = 0.0 # Should not happen if total_laps > 0
 
                 lap_times_only = [lt for _, lt, _ in laps]
                 if len(lap_times_only) > 0:
@@ -1354,7 +1359,7 @@ class RCScoringApp(QMainWindow):
             final_standings.append({
                 'car_id': car_id,
                 'total_laps': total_laps,
-                'total_time': total_time,
+                'total_time': total_time_for_car, # Use the car-specific total time
                 'fastest_lap_time': fastest_lap_time,
                 'consistency_score': consistency_score
             })
@@ -1369,7 +1374,7 @@ class RCScoringApp(QMainWindow):
                 car_id=result['car_id'],
                 final_position=pos + 1,
                 total_laps=result['total_laps'],
-                total_time=result['total_time'],
+                total_time=result['total_time'], # This now holds the car-specific total_time
                 fastest_lap_time=result['fastest_lap_time'],
                 consistency_score=result['consistency_score']
             )
@@ -1544,8 +1549,11 @@ class RCScoringApp(QMainWindow):
 
 # --- Main Execution ---
 if __name__ == "__main__":
+    print("Main execution block started.")
     app = QApplication(sys.argv)
     window = RCScoringApp()
     window.show()
+    print("Calling app.exec_()...")
     sys.exit(app.exec_())
+    print("App finished.")
 
